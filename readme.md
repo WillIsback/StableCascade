@@ -2,18 +2,34 @@
 ## Descriptions :
 
 ### Context:
-I am a lambda dev without organization and my biggest computing device is my RTX2080ti wich I am kind of proud. StableCascade seems to be the answer for me to train image generativ AI. However as I am on windows and what i just said nothing worked as expected. So i made some installation and modification and now it works :rocket: . Please find below every step I did to suceed.
+StableCascade is a solution for training image generative AI models. This repository contains modifications to make StableCascade compatible with a single GPU and Windows environment.
 
-### List of issues:
+## Table of Contents
 
-1- gdf module don't exist<br>
-2- Slurm compatibility<br>
-3- Windows compatibility<br>
-4- Bfloat16 compatibility<br>
-5- dataset path error<br>
-6- config path being wrong<br>
-7- Cuda out of memory <br>
-8- batch size = 0 <br>
+- [Issues](#issues)
+- [Solutions](#solutions)
+  - [gdf Import Issue](#gdf-import-issue)
+  - [Slurm Compatibility](#slurm-compatibility)
+  - [Windows Compatibility](#windows-compatibility)
+  - [bfloat16 Error](#bfloat16-error)
+  - [DataSet Path Error](#dataset-path-error)
+  - [Config Path Error](#config-path-error)
+  - [CUDA Out of Memory](#cuda-out-of-memory)
+  - [Batch Size= 0 Error](#batch-size-0-error)
+- [Conclusion](#conclusion)
+
+## Issues
+
+This project addresses the following issues:
+
+1. gdf module doesn't exist
+2. Slurm compatibility
+3. Windows compatibility
+4. Bfloat16 compatibility
+5. Dataset path error
+6. Config path being wrong
+7. CUDA out of memory
+8. Batch size = 0
 
 ## Solution 😀
 
@@ -130,15 +146,16 @@ Gradient accumulation is a technique used to handle large models that don't fit 
 
 ## Conclusion
 
-Now it's working you can find two new files here: <br>
-[configs/training/finetune_c_1b_lora_dry_run.yaml](configs/training/finetune_c_1b_lora_dry_run.yaml)<br>
-[configs/training/finetune_c_1b_lora_10h_training.yaml](configs/training/finetune_c_1b_lora_10h_training.yaml)<br>
+Now it's working, you can find two new files here:
 
-those files have config that worked for me, even if it is relative to the size and format of your dataset.
+- [configs/training/finetune_c_1b_lora_dry_run.yaml](configs/training/finetune_c_1b_lora_dry_run.yaml)
+- [configs/training/finetune_c_1b_lora_10h_training.yaml](configs/training/finetune_c_1b_lora_10h_training.yaml)
 
-I also have a project to preprocess image data to make it suitable for StableCascade training [WebDataSet_image_Creator](https://github.com/WillIsback/WebDataSet_image_Creator.git)
+These files have configs that worked for this project, even if it is relative to the size and format of your dataset.
 
-Have fun and stay tuned 👋
+Also, check out this project to preprocess image data to make it suitable for StableCascade training: [WebDataSet_image_Creator](https://github.com/WillIsback/WebDataSet_image_Creator.git)
+
+Happy training!
 
 
 
