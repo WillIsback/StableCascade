@@ -1,3 +1,149 @@
+# Little single GPU StableCascade friendly 🤯
+## Descriptions :
+
+### Context:
+I am a lambda dev without organization and my biggest computing device is my RTX2080ti wich I am kind of proud. StableCascade seems to be the answer for me to train image generativ AI. However as I am on windows and what i just said nothing worked as expected. So i made some installation and modification and now it works :rocket: . Please find below every step I did to suceed.
+
+### List of issues:
+
+1- gdf module don't exist<br>
+2- Slurm compatibility<br>
+3- Windows compatibility<br>
+4- Bfloat16 compatibility<br>
+5- dataset path error<br>
+6- config path being wrong<br>
+7- Cuda out of memory <br>
+8- batch size = 0 <br>
+
+## Solution 😀
+
+### 1- gdf import issue 
+Move the training file to the source directory, remove in train/__init__.py his reference and add it to the source __init__.py
+```
+.
+├── StableCascade
+│   ├── train_c_lora.py (Moved)
+│   ├── train
+│   │   └── __init__.py (Modified)
+│   │   └── example_train.sh
+│   └── README.md
+│   └── __init__.py (Modified)
+```
+
+### 2- Slurm compatibility
+
+Edit the [training script](./StableCascade/train_c_lora.py) to remove slurm call line 325 and add `import torch.distributed as dist`
+```Python
+if __name__ == '__main__':
+    print("Launching Script")
+    os.environ['RANK'] = '0'
+    os.environ['WORLD_SIZE'] = '1'
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+
+    dist.init_process_group(backend='gloo', init_method='env://')
+    warpcore = WurstCore(
+        config_file_path=sys.argv[1] if len(sys.argv) > 1 else None,
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    )
+```
+Also edit the [core script init file](./StableCascade/core/__init__.py) to remove slurm calling resulting in training error, the issue is in setup_ddp function:
+
+```Python
+#new setup_ddp
+if not single_gpu:
+    local_rank = 0
+    process_id = 0
+    world_size = 1
+
+    self.process_id = process_id
+    self.is_main_node = process_id == 0
+    self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    self.world_size = world_size
+
+    print(f"[GPU {process_id}] READY")
+else:
+    print("Running in single thread, DDP not enabled.")
+```
+
+### 3- Windows compatibilty
+here you have two choice, either you fight and made every little modification but there are plenty, or you download wsl2 and setup cuda for wsl2 <br>
+[Doc wsl2](https://learn.microsoft.com/fr-fr/windows/wsl/install), <br> 
+[doc Cuda](https://docs.nvidia.com/cuda/wsl-user-guide/index.html) .<br>
+the issue will arise as simply as when you would like to download the pretrained models, but it is not impossible you open the bash script and do the equivalence of a wget function.
+<BR><br>
+**Please** note that cuda is only available for wsl2 ubuntu distribution.
+
+### 4- bfloat16 error
+Well as I am not running a 25k€ A100 80GB GPU, I had to modify part of the code reffering to such dtype. <br>
+
+In training script line 274
+```Python
+        with torch.cuda.amp.autocast(dtype=torch.float16):
+            pred = models.generator(noised, noise_cond, **conditions)
+            loss = nn.functional.mse_loss(pred, target, reduction='none').mean(dim=[1, 2, 3])
+            loss_adjusted = (loss * loss_weight).mean() / self.config.grad_accum_steps
+```
+In train/base.py line 353:
+```Python
+            with torch.cuda.amp.autocast(dtype=torch.float16):
+                pred = models.generator(noised, noise_cond, **conditions)
+                pred = extras.gdf.undiffuse(noised, logSNR, pred)[0]
+
+            with torch.cuda.amp.autocast(dtype=torch.float16):
+                *_, (sampled, _, _) = extras.gdf.sample(
+                    models.generator, conditions,
+                    latents.shape, unconditions, device=self.device, **extras.sampling_configs
+                )
+```
+### 5- DataSet path error
+Ok so in your training config file.yaml dataset path are specified, however of a complicated reason the syntax given in the example for local file does not work and i don't pay a aws server. When the syntax is wrong you will keep having warning and error about aws s3 file not working. Here is the correct syntax:
+
+```yaml
+webdataset_path: file:dataset/output.tar
+```
+### 6- Config path being wrong
+OK so whenever a path in config file is wrong no error no exception just your training hangging on step0 at 0% and training type being none. Be aware of relative and absolute path sometimes you need a backslash sometimes you don't. It also depends of your workspace, on **google colab** always use absolute path like this : 
+```Yaml
+effnet_checkpoint_path: /content/StableCascade/models/effnet_encoder.safetensors
+previewer_checkpoint_path: /content/StableCascade/models/previewer.safetensors
+generator_checkpoint_path: /content/StableCascade/models/stable_cascade_stage_c.safetensors
+```
+
+### 7- Cuda out of memory
+Well training an AI is quite demanding, so be aware that you can't do everything when your hardware is a RTX GPU.
+Try to optimize size of your dataset, for image resize the image to lower as it is StableCascade way of handling things. less batch_size etc... Well you may encounter the next issue while trying to reduce your VRAM consumption.
+
+### 8- Batch size= 0 error
+The training take the batch size specified in the config yaml file and calcul a real batch size in the [train/base.py](train/base.py) script. <br>
+
+line 124:
+```Python
+        # SETUP DATALOADER
+        real_batch_size = self.config.batch_size // (self.world_size * self.config.grad_accum_steps)
+```
+Basically to reduce memory you could find on internet to increase grad_accum_steps however in this case it will result by null operation so grad_accum_steps should always be equal or inferior to batch size. (It make sense in a certain way once you understand) <bre>
+
+grad_accum_step is :<br>
+Gradient accumulation is a technique used to handle large models that don't fit into GPU memory. It allows you to effectively train with a **larger batch size** than your GPU can normally handle. In my case batch size is 1 at the moment.
+
+
+## Conclusion
+
+Now it's working you can find two new files here: <br>
+[configs/training/finetune_c_1b_lora_dry_run.yaml](configs/training/finetune_c_1b_lora_dry_run.yaml)<br>
+[configs/training/finetune_c_1b_lora_10h_training.yaml](configs/training/finetune_c_1b_lora_10h_training.yaml)<br>
+
+those files have config that worked for me, even if it is relative to the size and format of your dataset.
+
+I also have a project to preprocess image data to make it suitable for StableCascade training [WebDataSet_image_Creator](https://github.com/WillIsback/WebDataSet_image_Creator.git)
+
+Have fun and stay tuned 👋
+
+
+
+
+
 # Stable Cascade
 <p align="center">
     <img src="figures/collage_1.jpg" width="800">
