@@ -1,6 +1,7 @@
 import yaml
 import json
 import torch
+import logging
 import wandb
 import torchvision
 import numpy as np
@@ -91,9 +92,14 @@ class DataCore(WarpCore):
         ]
 
     def setup_data(self, extras: Extras) -> WarpCore.Data:
+        logging.debug("Setting up data...")
+
         # SETUP DATASET
         dataset_path = self.webdataset_path()
+        logging.debug(f"Dataset path: {dataset_path}")
+
         preprocessors = self.webdataset_preprocessors(extras)
+        logging.debug(f"Preprocessors: {preprocessors}")
 
         handler = warn_and_continue
         dataset = wds.WebDataset(
@@ -110,17 +116,19 @@ class DataCore(WarpCore):
             *[p[1] for p in preprocessors], handler=handler
         ).map(lambda x: {p[2]: x[i] for i, p in enumerate(preprocessors)})
 
+        logging.debug("Dataset setup complete.")
+
         def identity(x):
             return x
 
         # SETUP DATALOADER
         real_batch_size = self.config.batch_size // (self.world_size * self.config.grad_accum_steps)
+        logging.debug(f"Real batch size: {real_batch_size}")
+
         dataloader = DataLoader(
             dataset, batch_size=real_batch_size, num_workers=8, pin_memory=True,
             collate_fn=identity if self.config.multi_aspect_ratio is not None else None
         )
-        if self.is_main_node:
-            print(f"Training with batch size {self.config.batch_size} ({real_batch_size}/GPU)")
 
         if self.config.multi_aspect_ratio is not None:
             aspect_ratios = [float(Fraction(f)) for f in self.config.multi_aspect_ratio]
@@ -129,6 +137,8 @@ class DataCore(WarpCore):
                                             interpolate_nearest=False)  # , use_smartcrop=True)
         else:
             dataloader_iterator = iter(dataloader)
+
+        logging.debug("DataLoader setup complete.")
 
         return self.Data(dataset=dataset, dataloader=dataloader, iterator=dataloader_iterator)
 
@@ -340,11 +350,11 @@ class TrainingCore(DataCore, WarpCore):
             latents = self.encode_latents(batch, models, extras)
             noised, _, _, logSNR, noise_cond, _ = extras.gdf.diffuse(latents, shift=1, loss_shift=1)
 
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+            with torch.cuda.amp.autocast(dtype=torch.float16):
                 pred = models.generator(noised, noise_cond, **conditions)
                 pred = extras.gdf.undiffuse(noised, logSNR, pred)[0]
 
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+            with torch.cuda.amp.autocast(dtype=torch.float16):
                 *_, (sampled, _, _) = extras.gdf.sample(
                     models.generator, conditions,
                     latents.shape, unconditions, device=self.device, **extras.sampling_configs

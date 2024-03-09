@@ -141,27 +141,17 @@ class WarpCore(ABC):
         return self.Config(training=training)
 
     def setup_ddp(self, experiment_id, single_gpu=False):
+        #new setup_ddp
         if not single_gpu:
-            local_rank = int(os.environ.get("SLURM_LOCALID"))
-            process_id = int(os.environ.get("SLURM_PROCID"))
-            world_size = int(os.environ.get("SLURM_NNODES")) * torch.cuda.device_count()
+            local_rank = 0
+            process_id = 0
+            world_size = 1
 
             self.process_id = process_id
             self.is_main_node = process_id == 0
-            self.device = torch.device(local_rank)
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             self.world_size = world_size
 
-            dist_file_path = f"{os.getcwd()}/{self.config.dist_file_subfolder}dist_file_{experiment_id}"
-            # if os.path.exists(dist_file_path) and self.is_main_node:
-            #     os.remove(dist_file_path)
-
-            torch.cuda.set_device(local_rank)
-            init_process_group(
-                backend="nccl",
-                rank=process_id,
-                world_size=world_size,
-                init_method=f"file://{dist_file_path}",
-            )
             print(f"[GPU {process_id}] READY")
         else:
             print("Running in single thread, DDP not enabled.")

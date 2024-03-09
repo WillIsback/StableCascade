@@ -1,0 +1,42 @@
+# GLOBAL STUFF
+experiment_id: my_experiment
+checkpoint_path: checkpoints
+output_path: outputs
+model_version: 1B
+
+# WandB
+wandb_project: StableCascade
+wandb_entity: william-derue
+
+# TRAINING PARAMS
+lr: 1.0e-3
+batch_size: 1
+image_size: 256
+grad_accum_steps: 1
+updates: 5000  # Adjust based on how long each update takes
+backup_every: 500  # Adjust based on how long each update takes
+save_every: 100  # Adjust based on how long each update takes
+warmup_updates: 1
+use_fsdp: False
+
+# GDF
+# adaptive_loss_weight: True
+
+# LoRA specific
+module_filters: ['.attn']
+rank: 4
+train_tokens:
+  - ['postapocalyptic', null] # custom token [postapocalyptic], initialize as avg of postapocalyptic & postapocalyptic</w>
+  - ['^city', null] # token starts with "city" -> "city" & "cities", don't need to be reinitialized
+
+
+ema_start_iters: 5000
+ema_iters: 100
+ema_beta: 0.9
+
+webdataset_path: file:dataset/output.tar
+
+
+effnet_checkpoint_path: models/effnet_encoder.safetensors
+previewer_checkpoint_path: models/previewer.safetensors
+generator_checkpoint_path: models/stage_c_lite.safetensors

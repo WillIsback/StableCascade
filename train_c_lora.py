@@ -32,6 +32,7 @@ from accelerate import init_empty_weights
 from accelerate.utils import set_module_tensor_to_device
 from contextlib import contextmanager
 
+import torch.distributed as dist
 
 class WurstCore(TrainingCore, DataCore, WarpCore):
     @dataclass(frozen=True)
@@ -270,7 +271,7 @@ class WurstCore(TrainingCore, DataCore, WarpCore):
             latents = self.encode_latents(batch, models, extras)
             noised, noise, target, logSNR, noise_cond, loss_weight = extras.gdf.diffuse(latents, shift=1, loss_shift=1)
 
-        with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+        with torch.cuda.amp.autocast(dtype=torch.float16):
             pred = models.generator(noised, noise_cond, **conditions)
             loss = nn.functional.mse_loss(pred, target, reduction='none').mean(dim=[1, 2, 3])
             loss_adjusted = (loss * loss_weight).mean() / self.config.grad_accum_steps
@@ -320,11 +321,16 @@ class WurstCore(TrainingCore, DataCore, WarpCore):
 
 if __name__ == '__main__':
     print("Launching Script")
+    os.environ['RANK'] = '0'
+    os.environ['WORLD_SIZE'] = '1'
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+
+    dist.init_process_group(backend='gloo', init_method='env://')
     warpcore = WurstCore(
         config_file_path=sys.argv[1] if len(sys.argv) > 1 else None,
-        device=torch.device(int(os.environ.get("SLURM_LOCALID")))
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     )
-    warpcore.fsdp_defaults['sharding_strategy'] = ShardingStrategy.NO_SHARD
 
     # RUN TRAINING
     warpcore()

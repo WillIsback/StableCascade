@@ -10,3 +10,14 @@ jobs/*.sh
 .ipynb_checkpoints
 *.safetensors
 *_test.yaml
+my_experiment_latest_output.jpg
+checkpoints
+dataset
+outputs
+debug.PY
+venv
+wandb
+models/stage_a.safetensors
+models/stage_c_lite.safetensors
+models/effnet_encoder.safetensors
+models/previewer.safetensors
