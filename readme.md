@@ -33,7 +33,7 @@ This project addresses the following issues:
 
 ## Solution 😀
 
-### 1- gdf import issue 
+### gdf Import Issue
 Move the training file to the source directory, remove in train/__init__.py his reference and add it to the source __init__.py
 ```
 .
@@ -46,7 +46,7 @@ Move the training file to the source directory, remove in train/__init__.py his 
 │   └── __init__.py (Modified)
 ```
 
-### 2- Slurm compatibility
+### Slurm compatibility
 
 Edit the [training script](./StableCascade/train_c_lora.py) to remove slurm call line 325 and add `import torch.distributed as dist`
 ```Python
@@ -82,7 +82,7 @@ else:
     print("Running in single thread, DDP not enabled.")
 ```
 
-### 3- Windows compatibilty
+### Windows compatibilty
 here you have two choice, either you fight and made every little modification but there are plenty, or you download wsl2 and setup cuda for wsl2 <br>
 [Doc wsl2](https://learn.microsoft.com/fr-fr/windows/wsl/install), <br> 
 [doc Cuda](https://docs.nvidia.com/cuda/wsl-user-guide/index.html) .<br>
@@ -90,7 +90,7 @@ the issue will arise as simply as when you would like to download the pretrained
 <BR><br>
 **Please** note that cuda is only available for wsl2 ubuntu distribution.
 
-### 4- bfloat16 error
+### bfloat16 error
 Well as I am not running a 25k€ A100 80GB GPU, I had to modify part of the code reffering to such dtype. <br>
 
 In training script line 274
@@ -112,13 +112,13 @@ In train/base.py line 353:
                     latents.shape, unconditions, device=self.device, **extras.sampling_configs
                 )
 ```
-### 5- DataSet path error
+### DataSet path error
 Ok so in your training config file.yaml dataset path are specified, however of a complicated reason the syntax given in the example for local file does not work and i don't pay a aws server. When the syntax is wrong you will keep having warning and error about aws s3 file not working. Here is the correct syntax:
 
 ```yaml
 webdataset_path: file:dataset/output.tar
 ```
-### 6- Config path being wrong
+### Config path being wrong
 OK so whenever a path in config file is wrong no error no exception just your training hangging on step0 at 0% and training type being none. Be aware of relative and absolute path sometimes you need a backslash sometimes you don't. It also depends of your workspace, on **google colab** always use absolute path like this : 
 ```Yaml
 effnet_checkpoint_path: /content/StableCascade/models/effnet_encoder.safetensors
@@ -126,7 +126,7 @@ previewer_checkpoint_path: /content/StableCascade/models/previewer.safetensors
 generator_checkpoint_path: /content/StableCascade/models/stable_cascade_stage_c.safetensors
 ```
 
-### 7- Cuda out of memory
+### Cuda out of memory
 Well training an AI is quite demanding, so be aware that you can't do everything when your hardware is a RTX GPU.
 Try to optimize size of your dataset, for image resize the image to lower as it is StableCascade way of handling things. less batch_size etc... Well you may encounter the next issue while trying to reduce your VRAM consumption.
 
